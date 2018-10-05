@@ -24,8 +24,6 @@ HIGH = 1
 GPS_UP_MODE_REAL = 0
 GPS_UP_MODE_DELAY = 1  # 0x00 实时上传 0x01 补传
 
-
-
 class MessageBase(object):
     def __init__(self):
         self.extra = None
@@ -469,9 +467,6 @@ def tool_format_ci_value(bytes):
     # value = '0'+bytes
     value = int(value,16)
     return value
-    # buf = ByteBuf(value)
-    # return buf.read_uint32()
-    # return ' '.join(map(lambda _: '%02x' % ord(_), bytes))
 
 class MessageHeartBeat(MessageBase):
     """"""
@@ -769,70 +764,73 @@ class MessageOnlineCommand(MessageBase,DownStream):
         return pkt
 
     def parseContent(self):
-        """解析上报的设备信息，返回 kv 数据对"""
-        data={}
+        return parseContent(self.content)
 
-        cap = '[VERSION]'
-        if self.content.find(cap) == 0:
-            ver = self.content.split(cap)[-1]
-            data['ver'] = ver
+def parseContent(content):
+    """解析上报的设备信息，返回 kv 数据对"""
+    data={}
+    print 'Content:',content
+    cap = '[VERSION]'
+    if content.find(cap) == 0:
+        ver = content.split(cap)[-1]
+        data['ver'] = ver
 
-        cap = 'IMEI:'
-        if self.content.find(cap) == 0:
-            items = map(lambda  _:_.strip(),self.content.split(';'))
-            items = filter(lambda _:_,items)
-            kvs = dict(map(lambda _:_.split(":"),items))
-            for k,v in kvs.items():
-                if k =='IMEI':
-                    data['imei'] = v
-                if k=='TIMER':
-                    t1,t2,t3 = v.split(',')
-                    data['gps_timer'] = int(t3) * 60
-                    data['lbs_timer'] = int(t1) * 60
-                if k ==  'SOS':
-                    p1,p2,p3,p4 = v.split(',')
-                    data['sos_1'] = p1
-                    data['sos_2'] = p2
-                    data['sos_3'] = p3
-                    data['sos_4'] = p4
+    cap = 'IMEI:'
+    if content.find(cap) == 0:
+        items = map(lambda  _:_.strip(),content.split(';'))
+        items = filter(lambda _:_,items)
+        kvs = dict(map(lambda _:_.split(":"),items))
+        for k,v in kvs.items():
+            if k =='IMEI':
+                data['imei'] = v
+            if k=='TIMER':
+                t1,t2,t3 = v.split(',')
+                data['gps_timer'] = t3 #int(t3) * 60
+                data['lbs_timer'] = t1 #int(t1) * 60
+            if k ==  'SOS':
+                p1,p2,p3,p4 = v.split(',')
+                data['sos_1'] = p1
+                data['sos_2'] = p2
+                data['sos_3'] = p3
+                data['sos_4'] = p4
 
-        cap = 'SERVER'
-        if self.content.find(cap) == 0:
-            fs = self.content.split(',')
-            if fs[1] == '1':
-                data['server_mode'] = 'domain'
-                data['server_domain'] = fs[2]
-            else:
-                data['server_ip'] = fs[2]
-            data['server_port'] = fs[3]
+    cap = 'SERVER'
+    if content.find(cap) == 0:
+        fs = content.split(',')
+        if fs[1] == '1':
+            data['server_mode'] = 'domain'
+            data['server_domain'] = fs[2]
+        else:
+            data['server_ip'] = fs[2]
+        data['server_port'] = fs[3]
 
-        cap ='HBT'
-        if self.content.find(cap)==0:
-            fs = self.content.split(':')
-            data['heartbeat_timer'] = int(fs[1])
+    cap ='HBT'
+    if content.find(cap)==0:
+        fs = content.split(':')
+        data['heartbeat_timer'] = int(fs[1])
 
-        cap = 'FenceType'
-        if self.content.find(cap) == 0:
-            items = map(lambda _: _.strip(), self.content.split(','))
-            onoff = items[1].lower()
-            del items[1]
-            kvs = dict(map(lambda _: _.split(":"), items))
-            data['fence_enable'] = onoff
+    cap = 'FenceType'
+    if content.find(cap) == 0:
+        items = map(lambda _: _.strip(), content.split(','))
+        onoff = items[1].lower()
+        del items[1]
+        kvs = dict(map(lambda _: _.split(":"), items))
+        data['fence_enable'] = onoff
 
-            for k, v in kvs.items():
-                if k == 'FenceType':
-                    data['fence_type'] = v.lower()
-                if k=='Latitude':
-                    data['fence_cy'] = v
-                if k=='Longitude':
-                    data['fence_cx'] = v
-                if k=='radius':
-                    data['fence_radius'] = v[0:-1]
-                if k=='in out':
-                    data['fence_inout'] = v
-                if k == 'alarm type':
-                    data['fence_alarm_type'] = v
-        return data
+        for k, v in kvs.items():
+            if k == 'FenceType':
+                data['fence_type'] = v.lower()
+            if k=='Latitude':
+                data['fence_cy'] = v
+            if k=='Longitude':
+                data['fence_cx'] = v
+            if k=='radius':
+                data['fence_radius'] = v[0:-1]
+            if k=='in out':
+                data['fence_inout'] = v
+            if k == 'alarm type':
+                data['fence_alarm_type'] = v
+    return data
 
 class MessageOnlineCommandQuery(MessageOnlineCommand):
     """在线设备发送查询命令"""
@@ -893,11 +891,16 @@ class MessageGenericMessage(MessageBase):
 
     @staticmethod
     def unmarshall(bytes,extra=None):
+        import base64
         buf = ByteBuf(bytes)
         msg = MessageGenericMessage()
         msg.extra = extra
         msg.type = buf.read_uint8()
         msg.content = buf.bytes[buf.index:]
+        if msg.type == 4: # 终端状态同步信息 ascii
+            pass
+        else: # 转成 base64
+            msg.content = base64.b64encode(msg.content)
         return msg
 
 
@@ -958,15 +961,15 @@ for key,value in locals().items():
 # print MessageClsDict.values()
 
 
-@singleton
-class MessageOnlineCommandAllocator(object):
-    def __init__(self):
-        self.seq_gen = None
-
-    def setSequenceGeneroator(self,generator):
-        self.seq_gen = generator
-
-    def createCommand(self):
-        cmd = MessageOnlineCommand(self.seq_gen.next())
-        return cmd
+# @singleton
+# class MessageOnlineCommandAllocator(object):
+#     def __init__(self):
+#         self.seq_gen = None
+#
+#     def setSequenceGeneroator(self,generator):
+#         self.seq_gen = generator
+#
+#     def createCommand(self):
+#         cmd = MessageOnlineCommand(self.seq_gen.next())
+#         return cmd
 

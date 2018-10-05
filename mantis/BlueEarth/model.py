@@ -12,6 +12,8 @@ def get_database():
     database = service.get_database()
     return database
 
+
+
 class Model(object):
     def __init__(self):
         self._id = None
@@ -76,7 +78,7 @@ class Model(object):
 
     def update(self,**kwargs):
         """执行部分更新"""
-        coll = get_database[self.__collection__]
+        coll = get_database()[self.__collection__]
         coll.update_one({'_id':self._id},update={'$set':kwargs},upsert = True)
         return self
 
@@ -86,7 +88,7 @@ class Model(object):
         if self._id:
             self.update(**data)
         else:
-            self._id = coll.insert_one(data)
+            self._id = coll.insert_one(data).inserted_id
         return self
 
     @classmethod
@@ -177,6 +179,7 @@ class DeviceUserRelation(Model):
         self.device_id = ''     # 设备记录编号
         self.device_name = ''   # 设备名称
         self.device_image = ''  # 设备图片
+        self.device_type =''
 
         self.update_time = 0    # 更新时间
         self.is_share_device = False  # 是否是分享设备
@@ -273,6 +276,19 @@ class AlarmData(Position):
         self.message_type = 'alarm'
         self.alarm_source_type = AlarmSourceType.EMPTY
 
+class AudioRecord(Model):
+    """录音数据"""
+    def __init__(self):
+        Model.__init__(self)
+        self.device_id = ''
+        self.device_type = ''
+        self.ymdhms = ''
+        self.report_time = 0
+        self.size  = 0
+        self.content = ''  # base64 编码
+        self.path = ''  #存储路径
+        self.format='mp3'
+        self.read_time = 0  # 已阅读时间
 
 class CommandSend(Model):
     """设备在线命令发送记录"""
@@ -291,6 +307,7 @@ class Fence(Model):
         Model.__init__(self)
         self.name =''           # 围栏名称
         self.device_id = ''     # 设备id
+        self.device_type=''
         self.index = 0          # 围栏编号
         self.type = 'circle'    # circle or rect
         self.enable = 0

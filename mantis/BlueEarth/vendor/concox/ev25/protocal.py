@@ -38,9 +38,6 @@ class PacketType(object):
     SerialUpStream    = TypeValue(0x30,u'串口透传包')
     SerialDownStream    = TypeValue(0x31,u'串口透传服务器下发')
 
-    WifiLocation    = TypeValue(0x2c,u'wifi定位包')
-    AudioData = TypeValue(0x8d,u'录音文件')
-
 MessageClsDict ={}
 
 

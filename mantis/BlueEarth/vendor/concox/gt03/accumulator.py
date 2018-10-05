@@ -5,9 +5,10 @@ from packet import NetWorkPacket
 import message
 
 class DataAccumulator(object):
-    def __init__(self):
+    def __init__(self,packet_cls=NetWorkPacket):
         self.buff = ''
         self.cfgs = None
+        self.packet_cls = packet_cls
 
     def init(self,cfgs):
         self.cfgs = cfgs
@@ -34,7 +35,7 @@ class DataAccumulator(object):
             if index == -1:
                 break # cant get a whole packet
 
-            packet = NetWorkPacket()
+            packet = self.packet_cls()
             data = self.buff[:index+len(NetWorkPacket.END_FLAG)]
             self.buff = self.buff[len(data):]  # remain buff
             msg = packet.unpack(data)
